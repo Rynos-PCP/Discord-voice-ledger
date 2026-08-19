@@ -1,0 +1,4 @@
+# Blank issues are disabled on purpose. Every route into this tracker has to
+# pass the "do not attach your data package" warning, and a blank issue would
+# walk straight around it.
+blank_issues_enabled: false

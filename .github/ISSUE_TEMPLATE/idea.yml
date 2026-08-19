@@ -1,0 +1,40 @@
+name: Idea or feature request
+description: Something the tool should do, or should do differently
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach your data package, your `data.json` or your dashboard.**
+        This tracker is public, and those files carry your contacts' names.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to find out?
+      description: |
+        Describe the question you want answered about your own history, not the
+        widget you imagine answering it. "I want to see who I stopped talking
+        to" is far more useful than "add a churn chart" — it leaves room for a
+        better answer than either of us has thought of yet.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you would picture it
+      description: Optional. A sketch in words is plenty.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does your idea fit the constraints this tool works under?
+      description: |
+        These are not negotiable, and an idea that breaks one of them will be
+        declined however good it is. Tick what applies — an honest "no" is fine
+        and worth discussing.
+      options:
+        - label: It needs no network access, at build time or in the dashboard.
+        - label: It needs no dependencies beyond what Node ships with.
+        - label: "It can be answered from the data package alone — remember, the package holds only your own side of a conversation."

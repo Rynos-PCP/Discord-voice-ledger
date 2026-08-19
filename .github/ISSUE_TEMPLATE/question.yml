@@ -1,0 +1,21 @@
+name: Question
+description: Something in the docs or the numbers does not make sense
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach your data package, your `data.json` or your dashboard.**
+        This tracker is public, and those files carry your contacts' names.
+
+        If your question is "why is this number what it is", the derivation of
+        every figure is written up in
+        `docs/METHOD.md` in this repository — that may answer it faster than
+        waiting for a reply.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
