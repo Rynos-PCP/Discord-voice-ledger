@@ -1,0 +1,18 @@
+# ── Your Discord data package. Never commit this. ────────────────────────
+# It contains your messages, your contacts and your account details.
+package/
+packages/
+*.zip
+
+# ── Build output. Contains your contacts' names — keep it out of git. ────
+dist/
+sample-package/
+
+# ── Editors / OS ─────────────────────────────────────────────────────────
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log

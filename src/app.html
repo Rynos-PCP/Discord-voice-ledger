@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discord Voice Ledger</title>
+<style>
+/* ═══════════════════════════════════════════════════════════ Tokens ═══ */
+:root {
+  color-scheme: light;
+  --bg:            #f2f1ed;
+  --surface-1:     #fcfcfb;
+  --surface-2:     #f7f6f3;
+  --line:          #e4e2dc;
+  --line-strong:   #cbc8c0;
+  --grid:          #eae8e2;
+  --ink:           #0b0b0b;
+  --ink-2:         #52514e;
+  --ink-3:         #85837c;
+  --series-time:   #2a78d6;
+  --series-msg:    #eb6834;
+  --focus:         #2a78d6;
+  --shadow:        0 1px 2px rgba(20,19,15,.05), 0 8px 24px -12px rgba(20,19,15,.18);
+
+  --font-display: 'Bahnschrift', 'DIN Alternate', 'Segoe UI Variable Display', 'Segoe UI Semibold', 'Segoe UI', system-ui, sans-serif;
+  --font-ui:      'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  --font-mono:    'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, 'SFMono-Regular', monospace;
+
+  --rail: 268px;
+  --r: 3px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg:            #111110;
+    --surface-1:     #1a1a19;
+    --surface-2:     #201f1e;
+    --line:          #2c2b28;
+    --line-strong:   #403f3b;
+    --grid:          #262523;
+    --ink:           #ffffff;
+    --ink-2:         #c3c2b7;
+    --ink-3:         #8b8a81;
+    --series-time:   #3987e5;
+    --series-msg:    #d95926;
+    --focus:         #3987e5;
+    --shadow:        0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:            #111110;
+  --surface-1:     #1a1a19;
+  --surface-2:     #201f1e;
+  --line:          #2c2b28;
+  --line-strong:   #403f3b;
+  --grid:          #262523;
+  --ink:           #ffffff;
+  --ink-2:         #c3c2b7;
+  --ink-3:         #8b8a81;
+  --series-time:   #3987e5;
+  --series-msg:    #d95926;
+  --focus:         #3987e5;
+  --shadow:        0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+button, input, select { font: inherit; color: inherit; }
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.num  { font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════ Chrome ═══ */
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 0 20px; height: 52px;
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-family: var(--font-display); font-weight: 700; font-stretch: 87.5%;
+  letter-spacing: .1em; text-transform: uppercase; font-size: 15px;
+  display: flex; align-items: baseline; gap: 9px; white-space: nowrap;
+}
+.brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--series-time); align-self: center; }
+.brand small { font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; color: var(--ink-3); text-transform: none; font-weight: 400; }
+.topbar .spacer { flex: 1; }
+.topbar .stamp { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+
+.iconbtn {
+  background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r);
+  height: 30px; padding: 0 11px; cursor: pointer; color: var(--ink-2);
+  font-size: 12px; display: inline-flex; align-items: center; gap: 6px;
+}
+.iconbtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); align-items: start; }
+.rail, .main { min-width: 0; }
+
+/* ═════════════════════════════════════════════════════════ Controls ═══ */
+.rail {
+  position: sticky; top: 52px; height: calc(100vh - 52px); overflow-y: auto;
+  border-right: 1px solid var(--line); background: var(--surface-1);
+  padding: 18px 18px 40px;
+}
+.rail h2 {
+  font-family: var(--font-display); font-stretch: 87.5%; font-weight: 700;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-3); margin: 0 0 14px;
+}
+.grp { margin-bottom: 22px; }
+.grp > .lbl {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 7px; font-weight: 600;
+}
+.grp > .lbl .val { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+
+.seg { display: flex; border: 1px solid var(--line-strong); border-radius: var(--r); overflow: hidden; }
+.seg button {
+  flex: 1; background: transparent; border: 0; border-right: 1px solid var(--line);
+  padding: 7px 4px; cursor: pointer; font-size: 12px; color: var(--ink-2); white-space: nowrap;
+}
+.seg button:last-child { border-right: 0; }
+.seg-inline { width: auto; flex: 0 0 auto; }
+.seg-inline button { padding: 5px 11px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface-1); font-weight: 600; }
+.seg button:hover:not([aria-pressed="true"]) { background: var(--surface-2); }
+
+select, input[type="text"], input[type="date"], input[type="search"] {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--line-strong);
+  border-radius: var(--r); padding: 7px 9px; color: var(--ink);
+}
+input[type="range"] { width: 100%; accent-color: var(--series-time); }
+.dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.check { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.check input { margin: 2px 0 0; accent-color: var(--series-time); }
+.check b { display: block; color: var(--ink); font-weight: 600; }
+.check span { color: var(--ink-3); font-size: 11.5px; line-height: 1.35; display: block; }
+.railfoot { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ══════════════════════════════════════════════════════════ Content ═══ */
+.main { padding: 26px 26px 80px; max-width: 1500px; min-width: 0; }
+
+.hero {
+  display: grid; grid-template-columns: minmax(0,auto) minmax(0,1fr); gap: 30px; align-items: end;
+  padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid var(--line);
+}
+.hero .figure { font-family: var(--font-display); font-stretch: 87.5%; font-weight: 700; line-height: .88;
+  font-size: clamp(3.1rem, 7.5vw, 5.4rem); letter-spacing: -.015em; font-variant-numeric: tabular-nums; }
+.hero .figure .u { font-size: .3em; letter-spacing: .06em; color: var(--ink-3); margin-left: .18em; font-weight: 600; }
+.hero .cap { margin-top: 8px; color: var(--ink-2); font-size: 13px; }
+.hero .cap b { color: var(--ink); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; align-self: stretch; }
+@media (min-width: 1120px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.kpi { background: var(--surface-1); padding: 11px 13px; }
+.kpi .k { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.kpi .v { font-family: var(--font-display); font-stretch: 87.5%; font-weight: 700; font-size: 21px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.kpi .s { font-size: 11px; color: var(--ink-3); font-family: var(--font-mono); }
+
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; }
+.card {
+  background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px 18px 14px; box-shadow: var(--shadow); margin-bottom: 18px;
+}
+.card > header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.card h3 {
+  font-family: var(--font-display); font-stretch: 87.5%; font-weight: 700;
+  font-size: 12px; letter-spacing: .13em; text-transform: uppercase; margin: 0;
+}
+.card .tag { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: .02em; }
+.card > header .spacer { flex: 1; }
+.card .sub { color: var(--ink-3); font-size: 12px; margin: 0 0 12px; }
+
+svg { display: block; width: 100%; overflow: visible; }
+.grid-line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.axis-line { stroke: var(--line-strong); stroke-width: 1; shape-rendering: crispEdges; }
+.axis-text { fill: var(--ink-3); font-size: 10.5px; font-family: var(--font-mono); }
+.bar-label { fill: var(--ink); font-size: 12px; }
+.bar-value { fill: var(--ink-2); font-size: 11.5px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.row-hit { fill: transparent; cursor: pointer; }
+g:hover > .row-bg, g:focus-visible > .row-bg { fill: var(--surface-2); }
+g:focus-visible { outline: none; }
+g:focus-visible > .row-bg { stroke: var(--focus); stroke-width: 1.5; }
+.empty { color: var(--ink-3); font-size: 13px; padding: 26px 0; text-align: center; font-family: var(--font-mono); }
+
+/* Table — its own scroll area, so the header reliably sticks to the top */
+.tablewrap { overflow: auto; max-height: 66vh; margin: 0 -18px; padding: 0 18px; overscroll-behavior: contain; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: right; padding: 7px 10px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; width: 100%; white-space: normal; }
+#tbl thead th {
+  position: sticky; top: 0; background: var(--surface-1); z-index: 2;
+  cursor: pointer; -webkit-user-select: none; user-select: none;
+}
+thead th {
+  font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+  font-weight: 600; border-bottom: 1px solid var(--line-strong);
+}
+#tbl thead th:hover { color: var(--ink); }
+thead th .arrow { opacity: .45; font-family: var(--font-mono); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--surface-2); }
+td.n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.kindtag { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); border: 1px solid var(--line-strong); border-radius: 2px; padding: 0 4px; margin-left: 7px; }
+.kindtag.miss { border-color: var(--series-msg); color: var(--series-msg); }
+
+/* Log */
+.logrow { display: grid; grid-template-columns: 118px minmax(0, 1fr) 98px; gap: 14px; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.logrow:last-child { border-bottom: 0; }
+.logrow .t { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.logrow .n { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.logrow .n .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logrow .d { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.logbar { display: block; height: 3px; border-radius: 2px; background: var(--series-time); }
+
+/* Drawer */
+.scrim { position: fixed; inset: 0; background: rgba(10,10,8,.42); opacity: 0; pointer-events: none; transition: opacity .18s ease; z-index: 60; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100vh; width: min(560px, 100vw);
+  background: var(--surface-1); border-left: 1px solid var(--line-strong);
+  transform: translateX(100%); transition: transform .22s cubic-bezier(.32,.72,0,1);
+  z-index: 61; overflow-y: auto; padding: 22px 24px 60px;
+}
+.drawer.on { transform: none; }
+.drawer h2 { font-family: var(--font-display); font-stretch: 87.5%; font-weight: 700; font-size: 26px; margin: 0 0 2px; line-height: 1.1; }
+.drawer .id { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+.drawer .close { position: absolute; top: 16px; right: 20px; }
+.dk { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin: 18px 0 22px; }
+.dk > div { background: var(--surface-1); padding: 9px 11px; }
+.dk .k { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.dk .v { font-family: var(--font-mono); font-size: 16px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.dsec { font-family: var(--font-display); font-stretch: 87.5%; font-weight: 700; font-size: 11px; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--ink-3); margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.renamer { display: flex; gap: 8px; margin-top: 12px; }
+.renamer input { flex: 1; }
+
+/* Tooltip */
+.tip {
+  position: fixed; z-index: 90; pointer-events: none; opacity: 0;
+  background: var(--surface-1); border: 1px solid var(--line-strong); border-radius: var(--r);
+  padding: 8px 11px; box-shadow: var(--shadow); font-size: 12px; max-width: 300px;
+  transition: opacity .1s ease;
+}
+.tip.on { opacity: 1; }
+.tip .tt { font-weight: 600; margin-bottom: 3px; }
+.tip dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 1px 12px; }
+.tip dt { color: var(--ink-3); }
+.tip dd { margin: 0; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.note { font-size: 12px; color: var(--ink-3); line-height: 1.55; }
+.note code { font-family: var(--font-mono); font-size: 11.5px; background: var(--surface-2); padding: 1px 4px; border-radius: 2px; }
+ul.warn { margin: 10px 0 0; padding-left: 18px; }
+ul.warn li { margin-bottom: 7px; color: var(--ink-2); font-size: 12.5px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .main { padding: 18px 14px 60px; }
+}
+@media (max-width: 760px) {
+  .topbar { height: auto; min-height: 48px; padding: 6px 14px; }
+  .topbar .stamp, .brand small { display: none; }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+  .hero .figure { font-size: clamp(2.6rem, 15vw, 4rem); }
+  .card { padding: 14px 13px 12px; }
+  .tablewrap { margin: 0 -13px; padding: 0 13px; max-height: none; }
+  .logrow { grid-template-columns: 1fr 74px; }
+  .logrow .t:first-child { grid-column: 1 / -1; }
+  .drawer { padding: 20px 16px 60px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand"><span class="dot"></span>Voice Ledger <small id="range-stamp"></small></span>
+  <span class="spacer"></span>
+  <span class="stamp" id="build-stamp"></span>
+  <button type="button" class="iconbtn" id="theme-btn" title="Light / dark / auto">◐ <span id="theme-label">Auto</span></button>
+</div>
+
+<div class="shell">
+<aside class="rail">
+  <h2>Controls</h2>
+
+  <div class="grp">
+    <span class="lbl">Metric</span>
+    <div class="seg" id="seg-metric" role="group" aria-label="Metric">
+      <button type="button" data-v="voice" aria-pressed="true">Voice time</button>
+      <button type="button" data-v="msg" aria-pressed="false">Messages</button>
+    </div>
+  </div>
+
+  <div class="grp" id="grp-unit">
+    <span class="lbl">Unit</span>
+    <div class="seg" id="seg-unit" role="group" aria-label="Unit">
+      <button type="button" data-v="m" aria-pressed="false">Minutes</button>
+      <button type="button" data-v="h" aria-pressed="true">Hours</button>
+      <button type="button" data-v="d" aria-pressed="false">Days</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label class="lbl" for="preset">Period</label>
+    <select id="preset"></select>
+    <div class="dates">
+      <input type="date" id="from" aria-label="from">
+      <input type="date" id="to" aria-label="to">
+    </div>
+  </div>
+
+  <div class="grp">
+    <span class="lbl">Bars per chart <span class="val" id="topn-val">12</span></span>
+    <input type="range" id="topn" min="5" max="40" step="1" value="12" aria-label="Number of bars per chart">
+  </div>
+
+  <div class="grp">
+    <label class="lbl" for="q">Search</label>
+    <input type="search" id="q" placeholder="Server or person …">
+  </div>
+
+  <div class="grp">
+    <span class="lbl">Include</span>
+    <label class="check"><input type="checkbox" id="opt-groups" checked>
+      <span><b>Group calls</b><span>Group DMs count towards your contacts</span></span></label>
+    <label class="check"><input type="checkbox" id="opt-fill" checked>
+      <span><b>Gap filling</b><span>Stretches only <code>voice_disconnect</code> accounts for</span></span></label>
+    <label class="check"><input type="checkbox" id="opt-short">
+      <span><b>Hide short sessions</b><span>Leave out connections under one minute</span></span></label>
+  </div>
+
+  <div class="railfoot">
+    <button type="button" class="iconbtn" id="csv-btn">↓ Table as CSV</button>
+    <button type="button" class="iconbtn" id="reset-btn">↺ Reset filters</button>
+  </div>
+</aside>
+
+<main class="main">
+  <section class="hero">
+    <div>
+      <div class="figure" id="hero-fig">—</div>
+      <div class="cap" id="hero-cap"></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <div class="panels">
+    <section class="card">
+      <header><h3 id="t-server">Servers</h3><span class="tag" id="tag-server"></span></header>
+      <p class="sub" id="s-server"></p>
+      <div id="chart-server"></div>
+    </section>
+    <section class="card">
+      <header><h3 id="t-people">Direct calls · Contacts</h3><span class="tag" id="tag-people"></span></header>
+      <p class="sub" id="s-people"></p>
+      <div id="chart-people"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <header><h3>Over time</h3><span class="tag" id="tag-trend"></span><span class="spacer"></span>
+      <div class="seg seg-inline" id="seg-bucket">
+        <button type="button" data-v="m" aria-pressed="true">Month</button>
+        <button type="button" data-v="q" aria-pressed="false">Quarter</button>
+        <button type="button" data-v="y" aria-pressed="false">Year</button>
+      </div>
+    </header>
+    <p class="sub" id="s-trend"></p>
+    <div id="chart-trend"></div>
+  </section>
+
+  <section class="card">
+    <header><h3>All entries</h3><span class="tag" id="tag-table"></span><span class="spacer"></span>
+      <div class="seg seg-inline" id="seg-scope">
+        <button type="button" data-v="all" aria-pressed="true">All</button>
+        <button type="button" data-v="guild" aria-pressed="false">Servers</button>
+        <button type="button" data-v="people" aria-pressed="false">Contacts</button>
+      </div>
+    </header>
+    <p class="sub">Click a row for details. Sort with the column headers.</p>
+    <div class="tablewrap"><table id="tbl">
+      <thead><tr id="thead-row"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <header><h3>Log</h3><span class="tag">longest sessions in the selected period</span></header>
+    <div id="log"></div>
+  </section>
+
+  <section class="card">
+    <header><h3>Data quality</h3><span class="tag" id="tag-quality"></span></header>
+    <div id="quality"></div>
+  </section>
+</main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-name" tabindex="-1">
+  <button type="button" class="iconbtn close" id="drawer-close">Close ✕</button>
+  <div id="drawer-body"></div>
+</aside>
+
+<div class="tip" id="tip" role="status"></div>
+
+<script>
+"use strict";
+const DATA = /*__DATA__*/;
+
+/* ══════════════════════════════════════════════════════ Base data ═══ */
+
+const CH = DATA.channels;
+const GU = DATA.guilds;
+const S = DATA.sessions;
+const M = DATA.messages;
+const NS = S.d.length, NM = M.t.length;
+
+const KIND_LABEL = { guild: 'Server', dm: 'Direct call', group: 'Group' };
+
+// Channel -> entry (server or conversation partner)
+const entKeyOfCh = new Array(CH.length);
+const ENT = new Map();
+for (let i = 0; i < CH.length; i++) {
+  const c = CH[i];
+  const key = c.k === 'guild' ? 'g' + c.g : 'c' + i;
+  entKeyOfCh[i] = key;
+  if (!ENT.has(key)) {
+    ENT.set(key, {
+      key, kind: c.k,
+      base: c.k === 'guild'
+        ? (GU[c.g] ? GU[c.g].name : 'Unknown server')
+        : (c.p || (c.k === 'group' ? 'Group #' + c.id.slice(-4) : 'Contact #' + c.id.slice(-4))),
+      id: c.k === 'guild' ? (GU[c.g] ? GU[c.g].id : '0') : c.id,
+      named: c.k === 'guild' ? (GU[c.g] ? !!GU[c.g].named : false) : !!c.p,
+      chans: [],
+    });
+  }
+  ENT.get(key).chans.push(i);
+}
+
+let aliases = {};
+try { aliases = JSON.parse(localStorage.getItem('dvl.aliases') || '{}'); } catch (e) { aliases = {}; }
+const nameOf = (key) => aliases[key] || (ENT.get(key) ? ENT.get(key).base : key);
+function saveAliases() { try { localStorage.setItem('dvl.aliases', JSON.stringify(aliases)); } catch (e) {} }
+
+const DAY = 86400;
+const dataFrom = NS ? S.s[0] : (NM ? M.t[0] : 0);
+let dataTo = 0;
+for (let i = 0; i < NS; i++) dataTo = Math.max(dataTo, S.s[i] + S.d[i]);
+for (let i = 0; i < NM; i++) dataTo = Math.max(dataTo, M.t[i]);
+
+/* ═════════════════════════════════════════════════════════ State ═══ */
+
+const state = {
+  metric: 'voice', unit: 'h', bucket: 'm', scope: 'all',
+  from: dataFrom, to: dataTo, preset: 'all',
+  topN: 12, q: '', groups: true, fill: true, hideShort: false,
+  sort: 'value', dir: -1, theme: 'auto',
+};
+try {
+  const saved = JSON.parse(localStorage.getItem('dvl.state') || '{}');
+  for (const k of ['metric','unit','bucket','scope','topN','groups','fill','hideShort','theme'])
+    if (saved[k] !== undefined) state[k] = saved[k];
+} catch (e) {}
+function saveState() {
+  try {
+    localStorage.setItem('dvl.state', JSON.stringify({
+      metric: state.metric, unit: state.unit, bucket: state.bucket, scope: state.scope,
+      topN: state.topN, groups: state.groups, fill: state.fill,
+      hideShort: state.hideShort, theme: state.theme,
+    }));
+  } catch (e) {}
+}
+
+/* ════════════════════════════════════════════════════ Formatting ═══ */
+
+const nf = (v, d = 0) => v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const UNITS = {
+  m: { div: 60,    label: 'min',  long: 'minutes', dec: 0 },
+  h: { div: 3600,  label: 'hrs',  long: 'hours',   dec: 1 },
+  d: { div: 86400, label: 'days', long: 'days',    dec: 2 },
+};
+function fmtDur(secs, unit = state.unit) {
+  const u = UNITS[unit], v = secs / u.div;
+  let d = u.dec;
+  if (unit === 'h' && v >= 1000) d = 0;
+  if (unit === 'm' && v >= 100000) d = 0;
+  return nf(v, d);
+}
+function fmtClock(secs) {
+  const s = Math.round(secs);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+}
+// Short month names everywhere: "19 Aug 2026" is unambiguous, 08/19 vs 19/08 is not.
+const fmtDate = (ts) => new Date(ts * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const fmtDateTime = (ts) => new Date(ts * 1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
+const toInput = (ts) => { const d = new Date(ts * 1000); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const fromInput = (v, endOfDay) => { const [y,m,d] = v.split('-').map(Number); return Math.floor(new Date(y, m-1, d, endOfDay?23:0, endOfDay?59:0, endOfDay?59:0).getTime()/1000); };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ═══════════════════════════════════════════════════ Aggregation ═══ */
+
+const MIN_SHORT = 60;
+
+function passesChannel(ci) {
+  const c = CH[ci];
+  if (c.k === 'group' && !state.groups) return false;
+  return true;
+}
+
+/** Roll up sessions and messages inside the time window, per entry. */
+function aggregate() {
+  const from = state.from, to = state.to;
+  const rows = new Map();
+  const get = (key) => {
+    let r = rows.get(key);
+    if (!r) {
+      const e = ENT.get(key);
+      r = { key, kind: e.kind, name: nameOf(key), id: e.id, named: e.named,
+            voice: 0, speak: 0, stream: 0, sessions: 0, longest: 0,
+            msgs: 0, chars: 0, first: Infinity, last: -Infinity, chans: new Map() };
+      rows.set(key, r);
+    }
+    return r;
+  };
+  let totalVoice = 0, totalSessions = 0, totalMsgs = 0, totalChars = 0, totalSpeak = 0, fillVoice = 0;
+
+  for (let i = 0; i < NS; i++) {
+    const ci = S.c[i]; if (ci < 0 || !passesChannel(ci)) continue;
+    if (S.f[i] && !state.fill) continue;
+    const a = S.s[i], b = a + S.d[i];
+    if (b <= from || a >= to) continue;
+    const dur = Math.min(b, to) - Math.max(a, from);
+    if (dur <= 0) continue;
+    if (state.hideShort && S.d[i] < MIN_SHORT) continue;
+    const frac = dur / S.d[i];
+    const r = get(entKeyOfCh[ci]);
+    r.voice += dur; r.sessions++; r.longest = Math.max(r.longest, S.d[i]);
+    r.speak += S.sp[i] * frac; r.stream += S.st[i] * frac;
+    r.first = Math.min(r.first, Math.max(a, from)); r.last = Math.max(r.last, Math.min(b, to));
+    const cv = r.chans.get(ci) || { voice: 0, msgs: 0, sessions: 0 };
+    cv.voice += dur; cv.sessions++; r.chans.set(ci, cv);
+    totalVoice += dur; totalSessions++; totalSpeak += S.sp[i] * frac;
+    if (S.f[i]) fillVoice += dur;
+  }
+
+  for (let i = 0; i < NM; i++) {
+    const ci = M.c[i]; if (ci < 0 || !passesChannel(ci)) continue;
+    const t = M.t[i];
+    if (t < from || t > to) continue;
+    const r = get(entKeyOfCh[ci]);
+    r.msgs++; if (M.l[i] > 0) r.chars += M.l[i];
+    r.first = Math.min(r.first, t); r.last = Math.max(r.last, t);
+    const cv = r.chans.get(ci) || { voice: 0, msgs: 0, sessions: 0 };
+    cv.msgs++; r.chans.set(ci, cv);
+    totalMsgs++; if (M.l[i] > 0) totalChars += M.l[i];
+  }
+
+  const list = [...rows.values()];
+  for (const r of list) { if (r.first === Infinity) r.first = null; if (r.last === -Infinity) r.last = null; }
+  return { list, totalVoice, totalSessions, totalMsgs, totalChars, totalSpeak, fillVoice };
+}
+
+const valueOf = (r) => state.metric === 'voice' ? r.voice : r.msgs;
+const fmtValue = (v) => state.metric === 'voice' ? fmtDur(v) : nf(v);
+const unitLabel = () => state.metric === 'voice' ? UNITS[state.unit].label : 'msgs';
+const seriesVar = () => state.metric === 'voice' ? 'var(--series-time)' : 'var(--series-msg)';
+
+function filtered(list, kinds) {
+  const q = state.q.trim().toLowerCase();
+  return list.filter((r) => kinds.includes(r.kind) && (!q || r.name.toLowerCase().includes(q) || r.id.includes(q)));
+}
+
+/* ═══════════════════════════════════════════════════ Bar charts ═══ */
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (n, attrs = {}, txt) => {
+  const e = document.createElementNS(SVGNS, n);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (txt != null) e.textContent = txt;
+  return e;
+};
+
+/** Derive the decimals from the step width, so 0.25 does not become 0.3. */
+function tickFmt(ticks) {
+  const step = ticks.length > 1 ? ticks[1] - ticks[0] : 1;
+  const dec = Math.min(3, Math.max(0, Math.ceil(-Math.log10(step)) + (String(step).includes('.5') || String(step).includes('.25') ? 1 : 0)));
+  return (v) => nf(v, v === 0 ? 0 : dec);
+}
+
+/**
+ * Round the axis to sensible steps. The topmost tick always sits >= max —
+ * and as close above it as possible, so the bars use the available width.
+ */
+function niceTicks(max, want = 4) {
+  if (!(max > 0)) return [0, 1];
+  const mag = Math.pow(10, Math.floor(Math.log10(max / want)));
+  let best = null;
+  for (const m of [1, 2, 2.5, 5, 10, 20]) {
+    const step = m * mag;
+    const n = Math.ceil(max / step - 1e-9);
+    if (n < 2 || n > 8) continue;
+    const cost = (n * step - max) / max + Math.abs(n - want) * 0.04;
+    if (!best || cost < best.cost) best = { step, n, cost };
+  }
+  if (!best) best = { step: max / want, n: want };
+  const out = [];
+  for (let i = 0; i <= best.n; i++) out.push(+(i * best.step).toPrecision(12));
+  return out;
+}
+
+/**
+ * Horizontal bar chart.
+ * One series, one colour — the length carries the message, not a rank colour.
+ */
+function barChart(host, rows, opts) {
+  host.textContent = '';
+  if (!rows.length) {
+    const p = document.createElement('p');
+    p.className = 'empty'; p.textContent = 'No data in the selected period.';
+    host.appendChild(p); return;
+  }
+  const GUT = Math.min(210, Math.max(120, Math.round(host.clientWidth * 0.32)));
+  const PADR = 78, BAND = 27, BAR = 17, TOPPAD = 6, AXIS = 40;
+  const W = Math.max(360, host.clientWidth || 480);
+  const H = TOPPAD + rows.length * BAND + AXIS;
+  const plotW = W - GUT - PADR;
+  const div = state.metric === 'voice' ? UNITS[state.unit].div : 1;
+
+  const max = Math.max(...rows.map((r) => valueOf(r) / div), 0);
+  const ticks = niceTicks(max);
+  const tf = tickFmt(ticks);
+  const scaleMax = ticks[ticks.length - 1] || 1;
+  const x = (v) => GUT + (v / scaleMax) * plotW;
+
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img',
+    'aria-label': `${opts.title}: ${rows.length} entries` });
+
+  const plotBottom = TOPPAD + rows.length * BAND;
+  for (const t of ticks) {
+    svg.appendChild(el('line', { class: 'grid-line', x1: x(t), x2: x(t), y1: TOPPAD, y2: plotBottom }));
+    svg.appendChild(el('text', { class: 'axis-text', x: x(t), y: plotBottom + 15, 'text-anchor': 'middle' }, tf(t)));
+  }
+  svg.appendChild(el('text', { class: 'axis-text', x: GUT, y: plotBottom + 31, 'text-anchor': 'start' }, opts.axisLabel));
+  svg.appendChild(el('line', { class: 'axis-line', x1: GUT, x2: GUT, y1: TOPPAD, y2: TOPPAD + rows.length * BAND }));
+
+  rows.forEach((r, i) => {
+    const y = TOPPAD + i * BAND;
+    const v = valueOf(r) / div;
+    const g = el('g', { tabindex: '0', role: 'button', 'aria-label': `${r.name}, ${fmtValue(valueOf(r))} ${opts.axisLabel}` });
+
+    g.appendChild(el('rect', { class: 'row-bg', x: 0, y, width: W, height: BAND, fill: 'transparent', rx: 2 }));
+
+    const label = el('text', { class: 'bar-label', x: GUT - 10, y: y + BAND / 2, dy: '0.34em', 'text-anchor': 'end' });
+    label.textContent = r.name.length > 26 ? r.name.slice(0, 25) + '…' : r.name;
+    g.appendChild(label);
+
+    const w = Math.max(v > 0 ? 2 : 0, (v / scaleMax) * plotW);
+    if (w > 0) {
+      // Rounded at the data end, square at the baseline.
+      const bx = GUT, by = y + (BAND - BAR) / 2, rr = Math.min(4, w);
+      const d = `M${bx},${by} H${bx + w - rr} A${rr},${rr} 0 0 1 ${bx + w},${by + rr} V${by + BAR - rr} A${rr},${rr} 0 0 1 ${bx + w - rr},${by + BAR} H${bx} Z`;
+      g.appendChild(el('path', { class: 'bar', d, fill: opts.color }));
+    }
+    g.appendChild(el('text', { class: 'bar-value', x: GUT + w + 9, y: y + BAND / 2, dy: '0.34em' }, fmtValue(valueOf(r))));
+
+    const hit = el('rect', { class: 'row-hit', x: 0, y, width: W, height: BAND });
+    g.appendChild(hit);
+    g.addEventListener('pointerenter', (e) => showTip(e, r));
+    g.addEventListener('pointermove', moveTip);
+    g.addEventListener('pointerleave', hideTip);
+    g.addEventListener('focus', (e) => showTipAt(g, r));
+    g.addEventListener('blur', hideTip);
+    g.addEventListener('click', () => openDrawer(r.key));
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(r.key); } });
+    svg.appendChild(g);
+  });
+  host.appendChild(svg);
+}
+
+/** Column chart for the timeline. */
+function colChart(host, buckets, color, axisLabel) {
+  host.textContent = '';
+  if (!buckets.length) { host.innerHTML = '<p class="empty">No data in the selected period.</p>'; return; }
+  const W = Math.max(360, host.clientWidth || 700), H = 202, PADL = 54, PADB = 30, PADT = 20;
+  const plotW = W - PADL - 12, plotH = H - PADB - PADT;
+  const max = Math.max(...buckets.map((b) => b.v), 0);
+  const ticks = niceTicks(max, 3);
+  const tf = tickFmt(ticks);
+  const scaleMax = ticks[ticks.length - 1] || 1;
+  const y = (v) => PADT + plotH - (v / scaleMax) * plotH;
+  const bw = plotW / buckets.length;
+  const barW = Math.max(2, Math.min(24, bw - 2));
+
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img', 'aria-label': 'Over time' });
+  for (const t of ticks) {
+    svg.appendChild(el('line', { class: 'grid-line', x1: PADL, x2: PADL + plotW, y1: y(t), y2: y(t) }));
+    svg.appendChild(el('text', { class: 'axis-text', x: PADL - 8, y: y(t), dy: '0.32em', 'text-anchor': 'end' }, tf(t)));
+  }
+  svg.appendChild(el('text', { class: 'axis-text', x: 0, y: 10, 'text-anchor': 'start' }, axisLabel));
+  svg.appendChild(el('line', { class: 'axis-line', x1: PADL, x2: PADL + plotW, y1: PADT + plotH, y2: PADT + plotH }));
+
+  const every = Math.ceil(buckets.length / Math.max(4, Math.floor(plotW / 62)));
+  buckets.forEach((b, i) => {
+    const cx = PADL + i * bw + bw / 2;
+    const h = Math.max(b.v > 0 ? 2 : 0, (b.v / scaleMax) * plotH);
+    const g = el('g');
+    if (h > 0) {
+      const bx = cx - barW / 2, by = PADT + plotH - h, rr = Math.min(4, barW / 2, h);
+      g.appendChild(el('path', { class: 'bar', fill: color,
+        d: `M${bx},${by + rr} A${rr},${rr} 0 0 1 ${bx + rr},${by} H${bx + barW - rr} A${rr},${rr} 0 0 1 ${bx + barW},${by + rr} V${PADT + plotH} H${bx} Z` }));
+    }
+    const hit = el('rect', { class: 'row-hit', x: PADL + i * bw, y: PADT, width: bw, height: plotH });
+    g.appendChild(hit);
+    g.addEventListener('pointerenter', (e) => showTipRaw(e, b.label, [['Value', fmtValue(b.raw)], ['Unit', axisLabel]]));
+    g.addEventListener('pointermove', moveTip);
+    g.addEventListener('pointerleave', hideTip);
+    svg.appendChild(g);
+    if (i % every === 0) svg.appendChild(el('text', { class: 'axis-text', x: cx, y: H - 10, 'text-anchor': 'middle' }, b.short));
+  });
+  host.appendChild(svg);
+}
+
+/* ═══════════════════════════════════════════════════════ Tooltip ═══ */
+
+const tip = document.getElementById('tip');
+function showTipRaw(e, title, pairs) {
+  tip.innerHTML = `<div class="tt">${esc(title)}</div><dl>${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;
+  tip.classList.add('on'); moveTip(e);
+}
+function showTip(e, r) {
+  const pairs = [
+    ['Voice time', fmtDur(r.voice) + ' ' + UNITS[state.unit].label],
+    ['Sessions', nf(r.sessions)],
+    ['Messages', nf(r.msgs)],
+  ];
+  if (r.sessions) pairs.push(['Avg. session', fmtClock(r.voice / r.sessions)]);
+  if (r.last) pairs.push(['Last seen', fmtDate(r.last)]);
+  showTipRaw(e, r.name + ' · ' + KIND_LABEL[r.kind], pairs);
+}
+function showTipAt(node, r) {
+  const b = node.getBoundingClientRect();
+  showTip({ clientX: b.left + 40, clientY: b.top + b.height / 2 }, r);
+}
+function moveTip(e) {
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + pad, yy = e.clientY + pad;
+  if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+  if (yy + h > innerHeight - 8) yy = e.clientY - h - pad;
+  tip.style.left = Math.max(8, x) + 'px';
+  tip.style.top = Math.max(8, yy) + 'px';
+}
+function hideTip() { tip.classList.remove('on'); }
+
+/* ═════════════════════════════════════════════════════ Timeline ═══ */
+
+function bucketKey(ts) {
+  const d = new Date(ts * 1000);
+  if (state.bucket === 'y') return { k: `${d.getFullYear()}`, label: `${d.getFullYear()}`, short: `${d.getFullYear()}` };
+  if (state.bucket === 'q') {
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    return { k: `${d.getFullYear()}-Q${q}`, label: `Q${q} ${d.getFullYear()}`, short: `Q${q}/${String(d.getFullYear()).slice(2)}` };
+  }
+  const m = d.getMonth();
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return { k: `${d.getFullYear()}-${String(m+1).padStart(2,'0')}`, label: `${MN[m]} ${d.getFullYear()}`, short: `${MN[m]} ${String(d.getFullYear()).slice(2)}` };
+}
+
+function trendBuckets(keys) {
+  const only = keys ? new Set(keys) : null;
+  const map = new Map();
+  const add = (ts, v) => {
+    const b = bucketKey(ts);
+    const cur = map.get(b.k) || { k: b.k, label: b.label, short: b.short, raw: 0 };
+    cur.raw += v; map.set(b.k, cur);
+  };
+  if (state.metric === 'voice') {
+    for (let i = 0; i < NS; i++) {
+      const ci = S.c[i]; if (ci < 0 || !passesChannel(ci)) continue;
+      if (S.f[i] && !state.fill) continue;
+      if (state.hideShort && S.d[i] < MIN_SHORT) continue;
+      if (only && !only.has(entKeyOfCh[ci])) continue;
+      const a = S.s[i], b = a + S.d[i];
+      if (b <= state.from || a >= state.to) continue;
+      // Split the session at month boundaries, otherwise the timeline lies.
+      let cur = Math.max(a, state.from);
+      const end = Math.min(b, state.to);
+      while (cur < end) {
+        const d = new Date(cur * 1000);
+        const next = Math.floor(new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime() / 1000);
+        const seg = Math.min(next, end);
+        add(cur, seg - cur);
+        cur = seg;
+      }
+    }
+  } else {
+    for (let i = 0; i < NM; i++) {
+      const ci = M.c[i]; if (ci < 0 || !passesChannel(ci)) continue;
+      if (only && !only.has(entKeyOfCh[ci])) continue;
+      const t = M.t[i];
+      if (t < state.from || t > state.to) continue;
+      add(t, 1);
+    }
+  }
+  const div = state.metric === 'voice' ? UNITS[state.unit].div : 1;
+  return [...map.values()].sort((a, b) => a.k.localeCompare(b.k)).map((b) => ({ ...b, v: b.raw / div }));
+}
+
+/* ═════════════════════════════════════════════════════════ Render ═══ */
+
+let agg = null;
+
+function render() {
+  agg = aggregate();
+  renderHero();
+  renderCharts();
+  renderTrend();
+  renderTable();
+  renderLog();
+  document.getElementById('range-stamp').textContent =
+    `${fmtDate(state.from)} – ${fmtDate(state.to)}`;
+}
+
+function renderHero() {
+  const isVoice = state.metric === 'voice';
+  const u = UNITS[state.unit];
+  const fig = document.getElementById('hero-fig');
+  fig.innerHTML = isVoice
+    ? `${fmtDur(agg.totalVoice)}<span class="u">${u.label}</span>`
+    : `${nf(agg.totalMsgs)}<span class="u">messages</span>`;
+  const days = agg.totalVoice / 86400;
+  const span = Math.max(1, (state.to - state.from) / 86400);
+  const alt = state.unit === 'd'
+    ? `<b>${fmtDur(agg.totalVoice, 'h')}</b> hours`
+    : `<b>${nf(days, 1)}</b> full days back to back`;
+  document.getElementById('hero-cap').innerHTML = isVoice
+    ? `Total voice time · that is ${alt}<br>`
+      + `<b>${nf(agg.totalSessions)}</b> sessions · avg <b>${agg.totalSessions ? fmtClock(agg.totalVoice / agg.totalSessions) : '—'}</b> each`
+      + ` · avg <b>${fmtClock(agg.totalVoice / span)}</b> per day`
+    : `Messages sent · <b>${nf(agg.totalChars)}</b> characters<br>`
+      + `across <b>${nf(agg.list.filter((r) => r.msgs).length)}</b> servers and contacts`
+      + ` · avg <b>${nf(agg.totalMsgs / span, 1)}</b> per day`;
+
+  const guilds = agg.list.filter((r) => r.kind === 'guild');
+  const people = agg.list.filter((r) => r.kind !== 'guild');
+  const sum = (a) => a.reduce((s, r) => s + valueOf(r), 0);
+  const topG = [...guilds].sort((a, b) => valueOf(b) - valueOf(a))[0];
+  const topP = [...people].sort((a, b) => valueOf(b) - valueOf(a))[0];
+  const active = (a) => a.filter((r) => valueOf(r) > 0).length;
+
+  const kpis = [
+    { k: 'In servers', v: fmtValue(sum(guilds)), s: `${active(guilds)} active servers` },
+    { k: 'In direct calls', v: fmtValue(sum(people)), s: `${active(people)} contacts` },
+    { k: 'Top server', v: topG ? fmtValue(valueOf(topG)) : '—', s: topG ? topG.name : '—' },
+    { k: 'Top contact', v: topP ? fmtValue(valueOf(topP)) : '—', s: topP ? topP.name : '—' },
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map((k) =>
+    `<div class="kpi"><div class="k">${esc(k.k)}</div><div class="v">${esc(k.v)}</div><div class="s">${esc(k.s)}</div></div>`).join('');
+}
+
+function renderCharts() {
+  const axis = state.metric === 'voice' ? UNITS[state.unit].label : 'messages';
+  const color = seriesVar();
+  const mk = (kinds) => filtered(agg.list, kinds)
+    .filter((r) => valueOf(r) > 0)
+    .sort((a, b) => valueOf(b) - valueOf(a));
+
+  const gAll = mk(['guild']), pAll = mk(['dm', 'group']);
+  const g = gAll.slice(0, state.topN), p = pAll.slice(0, state.topN);
+
+  const what = state.metric === 'voice' ? 'Voice time' : 'Messages';
+  document.getElementById('t-server').textContent = `Servers · ${what}`;
+  document.getElementById('t-people').textContent = `Direct calls · ${what}`;
+  document.getElementById('tag-server').textContent = `${g.length}/${gAll.length}`;
+  document.getElementById('tag-people').textContent = `${p.length}/${pAll.length}`;
+  const unitWord = state.metric === 'voice' ? UNITS[state.unit].long : 'messages';
+  document.getElementById('s-server').textContent = `Values in ${unitWord}, sorted descending.`;
+  document.getElementById('s-people').textContent =
+    `${state.groups ? 'One-to-one and group calls' : 'One-to-one calls only'}, values in ${unitWord}.`;
+
+  barChart(document.getElementById('chart-server'), g, { title: 'Servers', color, axisLabel: axis });
+  barChart(document.getElementById('chart-people'), p, { title: 'Contacts', color, axisLabel: axis });
+}
+
+function renderTrend() {
+  const b = trendBuckets(null);
+  const axis = state.metric === 'voice' ? UNITS[state.unit].label : 'messages';
+  document.getElementById('tag-trend').textContent = `${b.length} periods`;
+  document.getElementById('s-trend').textContent = state.metric === 'voice'
+    ? 'Voice time over time; sessions are split at the period boundaries.'
+    : 'Messages sent over time.';
+  colChart(document.getElementById('chart-trend'), b, seriesVar(), axis);
+}
+
+const COLS = [
+  { k: 'name',     t: () => 'Name',        f: (r) => r.name },
+  { k: 'voice',    t: () => `Voice time (${UNITS[state.unit].label})`, f: (r) => fmtDur(r.voice) },
+  { k: 'share',    t: () => state.metric === 'voice' ? 'Share of time' : 'Share of msgs',
+    f: (r) => { const tot = state.metric === 'voice' ? agg.totalVoice : agg.totalMsgs;
+                return (tot ? nf(valueOf(r) / tot * 100, 1) : '0.0') + ' %'; } },
+  { k: 'sessions', t: () => 'Sessions',    f: (r) => nf(r.sessions) },
+  { k: 'avg',      t: () => 'Avg. session', f: (r) => r.sessions ? fmtClock(r.voice / r.sessions) : '—' },
+  { k: 'msgs',     t: () => 'Messages',    f: (r) => nf(r.msgs) },
+  { k: 'chars',    t: () => 'Characters',  f: (r) => nf(r.chars) },
+  { k: 'first',    t: () => 'First seen',  f: (r) => r.first ? fmtDate(r.first) : '—' },
+  { k: 'last',     t: () => 'Last seen',   f: (r) => r.last ? fmtDate(r.last) : '—' },
+];
+const sortVal = (r, k) => ({
+  name: r.name.toLowerCase(), voice: r.voice, share: valueOf(r), sessions: r.sessions,
+  avg: r.sessions ? r.voice / r.sessions : 0, msgs: r.msgs, chars: r.chars,
+  first: r.first || 0, last: r.last || 0, value: valueOf(r),
+}[k]);
+
+function tableRows() {
+  const kinds = state.scope === 'guild' ? ['guild'] : state.scope === 'people' ? ['dm', 'group'] : ['guild', 'dm', 'group'];
+  const rows = filtered(agg.list, kinds).filter((r) => r.voice > 0 || r.msgs > 0);
+  const k = state.sort;
+  rows.sort((a, b) => {
+    const va = sortVal(a, k), vb = sortVal(b, k);
+    if (va < vb) return -state.dir; if (va > vb) return state.dir;
+    return valueOf(b) - valueOf(a);
+  });
+  return rows;
+}
+
+function renderTable() {
+  const rows = tableRows();
+  document.getElementById('tag-table').textContent = `${rows.length} entries`;
+  document.getElementById('thead-row').innerHTML = COLS.map((c) => {
+    const t = c.t();
+    return `<th data-k="${c.k}" title="Sort by ${esc(t)}" aria-sort="${state.sort === c.k ? (state.dir < 0 ? 'descending' : 'ascending') : 'none'}">${esc(t)}<span class="arrow"> ${state.sort === c.k ? (state.dir < 0 ? '▼' : '▲') : ' '}</span></th>`;
+  }).join('');
+  document.getElementById('tbody').innerHTML = rows.map((r) =>
+    `<tr data-key="${esc(r.key)}"><td>${esc(r.name)}<span class="kindtag">${KIND_LABEL[r.kind]}</span>` +
+    `${r.named ? '' : '<span class="kindtag miss" title="No name in the data package — you can name it yourself in the detail view">unnamed</span>'}</td>` +
+    COLS.slice(1).map((c) => `<td class="n">${esc(c.f(r))}</td>`).join('') + '</tr>').join('');
+}
+
+function renderLog() {
+  const host = document.getElementById('log');
+  const items = [];
+  for (let i = 0; i < NS; i++) {
+    const ci = S.c[i]; if (ci < 0 || !passesChannel(ci)) continue;
+    if (S.f[i] && !state.fill) continue;
+    const a = S.s[i], b = a + S.d[i];
+    if (b <= state.from || a >= state.to) continue;
+    items.push({ i, a, d: S.d[i], key: entKeyOfCh[ci], ch: ci });
+  }
+  items.sort((x, y) => y.d - x.d);
+  const top = items.slice(0, 12);
+  if (!top.length) { host.innerHTML = '<p class="empty">No sessions in the selected period.</p>'; return; }
+  const max = top[0].d;
+  host.innerHTML = top.map((s) => {
+    const ch = CH[s.ch];
+    const sub = ch.n ? '#' + ch.n : (ENT.get(s.key).kind === 'guild' ? 'voice channel' : 'call');
+    return `<div class="logrow"><span class="t">${esc(fmtDateTime(s.a))}</span>` +
+      `<span class="n"><span class="name">${esc(nameOf(s.key))} <span class="t">· ${esc(sub)}</span></span>` +
+      `<span class="logbar" style="width:${(s.d / max * 100).toFixed(1)}%"></span></span>` +
+      `<span class="d">${esc(fmtClock(s.d))}</span></div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════ Drawer ═══ */
+
+const drawer = document.getElementById('drawer');
+const scrim = document.getElementById('scrim');
+let lastFocus = null;
+
+function openDrawer(key) {
+  const r = agg.list.find((x) => x.key === key);
+  if (!r) return;
+  lastFocus = document.activeElement;
+  const e = ENT.get(key);
+  const chans = [...r.chans.entries()].sort((a, b) => (b[1].voice - a[1].voice) || (b[1].msgs - a[1].msgs));
+  const hours = new Array(24).fill(0);
+  for (let i = 0; i < NS; i++) {
+    const ci = S.c[i]; if (ci < 0 || entKeyOfCh[ci] !== key || !passesChannel(ci)) continue;
+    if (S.f[i] && !state.fill) continue;
+    if (state.hideShort && S.d[i] < MIN_SHORT) continue;
+    let cur = Math.max(S.s[i], state.from), end = Math.min(S.s[i] + S.d[i], state.to);
+    while (cur < end) {
+      const d = new Date(cur * 1000);
+      const nxt = Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours() + 1).getTime() / 1000);
+      const seg = Math.min(nxt, end);
+      hours[d.getHours()] += seg - cur;
+      cur = seg;
+    }
+  }
+  const hmax = Math.max(...hours, 1);
+  const peak = hours.indexOf(hmax);
+
+  const kpi = (k, v) => `<div><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`;
+  document.getElementById('drawer-body').innerHTML = `
+    <h2 id="d-name">${esc(r.name)}</h2>
+    <div class="id">${KIND_LABEL[r.kind]} · ID ${esc(r.id)}${r.named ? '' : ' · no name in the data package'}</div>
+    <div class="dk">
+      ${kpi('Voice time (' + UNITS[state.unit].label + ')', fmtDur(r.voice))}
+      ${kpi('Sessions', nf(r.sessions))}
+      ${kpi('Avg. session', r.sessions ? fmtClock(r.voice / r.sessions) : '—')}
+      ${kpi('Longest', r.longest ? fmtClock(r.longest) : '—')}
+      ${kpi('Messages', nf(r.msgs))}
+      ${kpi('Characters', nf(r.chars))}
+      ${kpi('Talk share', r.voice ? nf(r.speak / r.voice * 100, 0) + ' %' : '—')}
+      ${kpi('Go Live', r.stream ? fmtDur(r.stream) + ' ' + UNITS[state.unit].label : '—')}
+      ${kpi('First seen', r.first ? fmtDate(r.first) : '—')}
+      ${kpi('Last seen', r.last ? fmtDate(r.last) : '—')}
+    </div>
+    <div class="dsec">Over time</div><div id="d-trend"></div>
+    <div class="dsec">Time of day · peak ${String(peak).padStart(2, '0')}:00</div><div id="d-hours"></div>
+    ${chans.length > 1 ? `<div class="dsec">Channels (${chans.length})</div>
+    <table><thead><tr><th>Channel</th><th>Voice time (${UNITS[state.unit].label})</th><th>Msgs</th></tr></thead><tbody>
+      ${chans.map(([ci, v]) => {
+        const c = CH[ci];
+        const nm = c.n ? '#' + c.n : (c.k === 'guild' ? 'Channel ' + c.id.slice(-5) : 'Direct channel');
+        return `<tr><td>${esc(nm)}</td><td class="n">${esc(fmtDur(v.voice))}</td><td class="n">${esc(nf(v.msgs))}</td></tr>`;
+      }).join('')}
+    </tbody></table>` : ''}
+    <div class="dsec">Override the name</div>
+    <p class="note">The name you type is stored in this browser only. It changes nothing inside the data package.</p>
+    <div class="renamer">
+      <input type="text" id="d-alias" value="${esc(aliases[key] || '')}" placeholder="${esc(e.base)}">
+      <button type="button" class="iconbtn" id="d-alias-save">Save</button>
+    </div>`;
+
+  const axis = state.metric === 'voice' ? UNITS[state.unit].label : 'messages';
+  colChart(document.getElementById('d-trend'), trendBuckets([key]), seriesVar(), axis);
+  const div = UNITS[state.unit].div;
+  colChart(document.getElementById('d-hours'),
+    hours.map((v, h) => ({ label: `${String(h).padStart(2, '0')}:00 – ${String(h).padStart(2, '0')}:59`, short: String(h), raw: v, v: v / div })),
+    'var(--series-time)', UNITS[state.unit].label);
+
+  document.getElementById('d-alias-save').addEventListener('click', () => {
+    const v = document.getElementById('d-alias').value.trim();
+    if (v) aliases[key] = v; else delete aliases[key];
+    saveAliases(); render(); openDrawer(key);
+  });
+
+  drawer.classList.add('on'); scrim.classList.add('on'); drawer.focus();
+}
+function closeDrawer() {
+  drawer.classList.remove('on'); scrim.classList.remove('on');
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+scrim.addEventListener('click', closeDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); hideTip(); } });
+
+/* ═══════════════════════════════════════════════════ Data quality ═══ */
+
+function renderQuality() {
+  const q = DATA.quality;
+  const host = document.getElementById('quality');
+  document.getElementById('tag-quality').textContent = `${q.warnings.length} note(s)`;
+  const gap = q.voiceSeconds ? (q.gapFilledSeconds / q.voiceSeconds * 100) : 0;
+  host.innerHTML = `
+    <div class="dk" style="margin-top:6px">
+      <div><div class="k">Event lines</div><div class="v">${nf(q.eventLines)}</div></div>
+      <div><div class="k">Duplicate events</div><div class="v">${nf(q.duplicateEvents)}</div></div>
+      <div><div class="k">Sessions</div><div class="v">${nf(q.sessions)}</div></div>
+      <div><div class="k">Gap filling</div><div class="v">${nf(gap, 1)} %</div></div>
+      <div><div class="k">Channel fixes</div><div class="v">${nf(q.reattributedChannels)}</div></div>
+      <div><div class="k">Servers named</div><div class="v">${q.guildsNamed}/${q.guildsTotal}</div></div>
+    </div>
+    <p class="note" style="margin-top:14px">
+      <b>Voice time</b> comes from <code>leave_voice_channel</code> (interval = timestamp minus <code>duration</code>).
+      That source attributes the channel reliably — 98.4&nbsp;% of the start times computed this way land on a
+      <code>join_voice_channel</code> event for the same channel.
+      <code>voice_disconnect</code> frequently reported the channel of the previous session in the 2022/2023 client
+      builds, so it is only used to fill gaps, with the channel corrected via the nearest join event.
+      Go Live connections running in parallel (<code>context = stream</code>) are not counted twice.
+      The timeline is overlap-free: every second belongs to exactly one channel.
+    </p>
+    <p class="note">
+      <b>Messages</b> are the union of the <code>messages</code> folder and the
+      <code>send_message</code> events, deduplicated by message ID
+      (${nf(q.messagesTotal)} in total, ${nf(q.messagesFromPackageOnly)} of them from the messages folder only).
+      ${q.messageFoldersExtracted} of ${q.messageChannelsInIndex} channel folders are present.
+    </p>
+    ${q.warnings.length ? `<div class="dsec">Notes</div><ul class="warn">${q.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}`;
+}
+
+/* ═══════════════════════════════════════════════════════ Controls ═══ */
+
+function segment(id, key, after) {
+  const box = document.getElementById(id);
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state[key] = b.dataset.v;
+    [...box.querySelectorAll('button')].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    saveState(); (after || render)();
+  });
+  [...box.querySelectorAll('button')].forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === state[key])));
+}
+segment('seg-metric', 'metric', () => { syncUnitVisibility(); render(); });
+segment('seg-unit', 'unit');
+segment('seg-bucket', 'bucket');
+segment('seg-scope', 'scope', renderTable);
+
+function syncUnitVisibility() {
+  document.getElementById('grp-unit').style.opacity = state.metric === 'voice' ? '1' : '.42';
+  document.getElementById('grp-unit').style.pointerEvents = state.metric === 'voice' ? '' : 'none';
+}
+
+// Period presets, anchored to the last data point — not to today.
+const presets = [{ v: 'all', t: 'Entire period' }];
+{
+  const years = new Set();
+  for (let i = 0; i < NS; i++) years.add(new Date(S.s[i] * 1000).getFullYear());
+  for (let i = 0; i < NM; i++) years.add(new Date(M.t[i] * 1000).getFullYear());
+  presets.push({ v: 'l12', t: `Last 12 months (to ${fmtDate(dataTo)})` });
+  presets.push({ v: 'l90', t: `Last 90 days (to ${fmtDate(dataTo)})` });
+  presets.push({ v: 'l30', t: `Last 30 days (to ${fmtDate(dataTo)})` });
+  [...years].sort((a, b) => b - a).forEach((y) => presets.push({ v: 'y' + y, t: 'Year ' + y }));
+  presets.push({ v: 'custom', t: 'Custom' });
+}
+const selPreset = document.getElementById('preset');
+selPreset.innerHTML = presets.map((p) => `<option value="${p.v}">${esc(p.t)}</option>`).join('');
+const inFrom = document.getElementById('from'), inTo = document.getElementById('to');
+
+function applyPreset(v, silent) {
+  state.preset = v;
+  const end = dataTo;
+  if (v === 'all') { state.from = dataFrom; state.to = dataTo; }
+  else if (v === 'l12') { const d = new Date(end * 1000); d.setFullYear(d.getFullYear() - 1); state.from = Math.floor(d / 1000); state.to = end; }
+  else if (v === 'l90') { state.from = end - 90 * DAY; state.to = end; }
+  else if (v === 'l30') { state.from = end - 30 * DAY; state.to = end; }
+  else if (v.startsWith('y')) {
+    const y = +v.slice(1);
+    state.from = Math.floor(new Date(y, 0, 1).getTime() / 1000);
+    state.to = Math.floor(new Date(y, 11, 31, 23, 59, 59).getTime() / 1000);
+  }
+  inFrom.value = toInput(state.from); inTo.value = toInput(state.to);
+  if (!silent) render();
+}
+selPreset.addEventListener('change', () => applyPreset(selPreset.value));
+function onDate() {
+  if (inFrom.value) state.from = fromInput(inFrom.value, false);
+  if (inTo.value) state.to = fromInput(inTo.value, true);
+  if (state.to < state.from) { const t = state.to; state.to = state.from; state.from = t; inFrom.value = toInput(state.from); inTo.value = toInput(state.to); }
+  selPreset.value = 'custom'; state.preset = 'custom';
+  render();
+}
+inFrom.addEventListener('change', onDate);
+inTo.addEventListener('change', onDate);
+
+const topn = document.getElementById('topn');
+topn.value = state.topN;
+document.getElementById('topn-val').textContent = state.topN;
+topn.addEventListener('input', () => {
+  state.topN = +topn.value;
+  document.getElementById('topn-val').textContent = state.topN;
+  saveState(); renderCharts();
+});
+
+let qTimer = null;
+document.getElementById('q').addEventListener('input', (e) => {
+  clearTimeout(qTimer);
+  qTimer = setTimeout(() => { state.q = e.target.value; renderCharts(); renderTable(); }, 130);
+});
+
+const bind = (id, key, fn) => {
+  const box = document.getElementById(id);
+  box.checked = state[key];
+  box.addEventListener('change', () => { state[key] = box.checked; saveState(); (fn || render)(); });
+};
+bind('opt-groups', 'groups');
+bind('opt-fill', 'fill');
+bind('opt-short', 'hideShort');
+
+document.getElementById('thead-row').addEventListener('click', (e) => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.k;
+  if (state.sort === k) state.dir = -state.dir;
+  else { state.sort = k; state.dir = k === 'name' ? 1 : -1; }
+  renderTable();
+});
+document.getElementById('tbody').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr'); if (tr && tr.dataset.key) openDrawer(tr.dataset.key);
+});
+
+document.getElementById('csv-btn').addEventListener('click', () => {
+  const rows = tableRows();
+  const head = ['Name', 'Kind', 'ID', `Voice time (${UNITS[state.unit].long})`, 'Sessions', 'Avg. session (sec)', 'Messages', 'Characters', 'First seen', 'Last seen'];
+  const div = UNITS[state.unit].div;
+  const body = rows.map((r) => [
+    r.name, KIND_LABEL[r.kind], r.id, (r.voice / div).toFixed(3),
+    r.sessions, r.sessions ? Math.round(r.voice / r.sessions) : 0, r.msgs, r.chars,
+    r.first ? new Date(r.first * 1000).toISOString().slice(0, 10) : '',
+    r.last ? new Date(r.last * 1000).toISOString().slice(0, 10) : '',
+  ]);
+  const csv = [head, ...body].map((r) => r.map((c) => {
+    const s = String(c);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `voice-ledger-${state.metric}-${toInput(state.from)}_${toInput(state.to)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  state.q = ''; document.getElementById('q').value = '';
+  state.topN = 12; topn.value = 12; document.getElementById('topn-val').textContent = '12';
+  state.groups = true; state.fill = true; state.hideShort = false;
+  document.getElementById('opt-groups').checked = true;
+  document.getElementById('opt-fill').checked = true;
+  document.getElementById('opt-short').checked = false;
+  state.sort = 'value'; state.dir = -1; state.scope = 'all';
+  [...document.querySelectorAll('#seg-scope button')].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === 'all')));
+  selPreset.value = 'all'; applyPreset('all', true);
+  saveState(); render();
+});
+
+// Theme
+const themeBtn = document.getElementById('theme-btn');
+function applyTheme() {
+  const l = { auto: 'Auto', light: 'Light', dark: 'Dark' }[state.theme];
+  document.getElementById('theme-label').textContent = l;
+  if (state.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', state.theme);
+}
+themeBtn.addEventListener('click', () => {
+  state.theme = { auto: 'light', light: 'dark', dark: 'auto' }[state.theme];
+  applyTheme(); saveState(); render();
+});
+
+let rTimer = null;
+addEventListener('resize', () => { clearTimeout(rTimer); rTimer = setTimeout(() => { renderCharts(); renderTrend(); }, 160); });
+
+/* ═══════════════════════════════════════════════════════════ Start ═══ */
+
+document.getElementById('build-stamp').textContent =
+  'Built ' + new Date(DATA.generatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+applyTheme();
+syncUnitVisibility();
+[...document.querySelectorAll('#seg-bucket button')].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === state.bucket)));
+[...document.querySelectorAll('#seg-scope button')].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === state.scope)));
+applyPreset('all', true);
+render();
+renderQuality();
+</script>
+</body>
+</html>
