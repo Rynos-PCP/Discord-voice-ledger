@@ -10,10 +10,11 @@ ways to read it is quietly wrong.
 This tool reads that export and turns it into a single HTML file: voice time per
 server, voice time per person, messages, over time, with the arithmetic shown.
 
-![no dependencies](https://img.shields.io/badge/dependencies-none-2a78d6)
-![offline](https://img.shields.io/badge/network-never-2a78d6)
-![node](https://img.shields.io/badge/node-18%2B-2a78d6)
-![license](https://img.shields.io/badge/license-MIT-2a78d6)
+`no dependencies` · `never touches the network` · `Node 18+` · `MIT`
+
+<sup>Those are plain text, not badge images — a page that claims never to reach
+the network should not make your browser fetch four pictures from a CDN to say
+so.</sup>
 
 ---
 

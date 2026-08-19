@@ -1,0 +1,16 @@
+# Line endings: LF in the repository, regardless of who commits from where.
+# Without this, a checkout on Windows and one on Linux produce diffs that
+# touch every line and bury the real change.
+* text=auto eol=lf
+
+# Exception: cmd.exe reads batch files by byte position and mishandles
+# LF-only files inside parenthesised blocks. Windows launchers stay CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Never normalise these, whatever ends up in the tree.
+*.png binary
+*.jpg binary
+*.gif binary
+*.zip binary
+*.pdf binary
