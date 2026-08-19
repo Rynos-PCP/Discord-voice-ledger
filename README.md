@@ -10,7 +10,7 @@ ways to read it is quietly wrong.
 This tool reads that export and turns it into a single HTML file: voice time per
 server, voice time per person, messages, over time, with the arithmetic shown.
 
-`no dependencies` · `never touches the network` · `Node 18+` · `MIT`
+`no dependencies` · `no network calls` · `Node 18+` · `MIT`
 
 <sup>Those are plain text, not badge images — a page that claims never to reach
 the network should not make your browser fetch four pictures from a CDN to say
