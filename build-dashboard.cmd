@@ -25,6 +25,9 @@ node build.mjs %*
 if errorlevel 1 (
   echo.
   echo   The build failed. See the message above.
+  echo   If it mentions "heap out of memory", run these two lines and try again:
+  echo     set NODE_OPTIONS=--max-old-space-size=8192
+  echo     build-dashboard.cmd
   echo.
   pause
   exit /b 1

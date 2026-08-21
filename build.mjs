@@ -160,22 +160,33 @@ async function readEventFile(file) {
     const hasName = line.indexOf('"guild_name"') >= 0 || line.indexOf('"channel_name"') >= 0;
     const mt = RE_TYPE.exec(line);
     const type = mt ? mt[1] : null;
-    if (!hasName && (!type || !KEEP.has(type))) continue;
+    const keep = !!type && KEEP.has(type);
+    if (!hasName && !keep) continue;
 
-    const mi = RE_ID.exec(line);
-    const eid = mi ? mi[1] : null;
-    if (eid && seenEvent.has(eid)) { dup++; continue; }
+    // Only the events that are actually collected need the duplicate check.
+    // Reading a name twice changes nothing (the first one wins), and
+    // remembering every other event is what fills the heap on large packages.
+    let eid = null;
+    if (keep) {
+      const mi = RE_ID.exec(line);
+      eid = mi ? mi[1] : null;
+      if (eid && seenEvent.has(eid)) { dup++; continue; }
+    }
 
     let o;
     try { o = JSON.parse(line); } catch { continue; }
-    if (eid) seenEvent.add(eid);
+    // Deliberately the ID out of the parsed object, not the one out of the
+    // regex: a match is a view into the raw line, and V8 keeps that whole
+    // line alive for as long as the view exists — a few hundred bytes per
+    // event, times millions of events.
+    if (eid) seenEvent.add(o.event_id != null ? String(o.event_id) : eid);
 
     if (o.guild_id && o.guild_name && !guildNameFromEvents.has(String(o.guild_id)))
       guildNameFromEvents.set(String(o.guild_id), String(o.guild_name));
     if (o.channel_id && o.channel_name && !channelNameFromEvents.has(String(o.channel_id)))
       channelNameFromEvents.set(String(o.channel_id), String(o.channel_name));
 
-    if (!type || !KEEP.has(type)) continue;
+    if (!keep) continue;
     kept++;
     stats.byType[type] = (stats.byType[type] || 0) + 1;
     const t = eventTime(o);
@@ -701,10 +712,16 @@ fs.writeFileSync(jsonPath, payload);
 // Embedded in HTML: a bare "<" would end the script tag, and U+2028/U+2029
 // count as line terminators in JS source and would tear the expression apart.
 const BS = String.fromCharCode(92);
-const inline = payload
-  .split('<').join(BS + 'u003c')
-  .split(String.fromCharCode(0x2028)).join(BS + 'u2028')
-  .split(String.fromCharCode(0x2029)).join(BS + 'u2029');
+const ESCAPE = {
+  '<': BS + 'u003c',
+  [String.fromCharCode(0x2028)]: BS + 'u2028',
+  [String.fromCharCode(0x2029)]: BS + 'u2029',
+};
+// One pass. A split/join chain would hold the payload three times over.
+// Built from the keys so this file itself stays free of the two characters:
+// a literal U+2028 in the source would be a line break to the parser.
+const ESCAPE_RE = new RegExp('[' + Object.keys(ESCAPE).join('') + ']', 'g');
+const inline = payload.replace(ESCAPE_RE, (c) => ESCAPE[c]);
 
 const tplPath = path.join(__dirname, 'src', 'app.html');
 const tpl = fs.readFileSync(tplPath, 'utf8');
@@ -713,7 +730,12 @@ if (!tpl.includes('/*__DATA__*/')) {
   process.exit(1);
 }
 const htmlPath = path.join(OUT, 'discord-voice-ledger.html');
-fs.writeFileSync(htmlPath, tpl.replace('/*__DATA__*/', () => inline));
+// Written in three pieces on purpose: tpl.replace() would build the whole
+// file, payload included, a second time in memory.
+const cut = tpl.indexOf('/*__DATA__*/');
+fs.writeFileSync(htmlPath, tpl.slice(0, cut));
+fs.appendFileSync(htmlPath, inline);
+fs.appendFileSync(htmlPath, tpl.slice(cut + '/*__DATA__*/'.length));
 
 // -------------------------------------------------------------- Report -----
 

@@ -8,7 +8,12 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-node build.mjs "$@"
+if ! node build.mjs "$@"; then
+  echo >&2
+  echo 'The build failed. If it mentions "heap out of memory", try:' >&2
+  echo '  NODE_OPTIONS=--max-old-space-size=8192 ./build-dashboard.sh' >&2
+  exit 1
+fi
 
 OUT="dist/discord-voice-ledger.html"
 echo

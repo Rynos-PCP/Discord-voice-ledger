@@ -187,6 +187,22 @@ dist/data.json                  the same dataset on its own, for your own analys
 
 Node.js 18 or newer. Nothing else — there is no `package.json` to install.
 
+Memory: the build holds the events it keeps, not the whole stream. A
+message-heavy 750 MB `activity` folder peaks at about 500 MB of RAM; a real
+export, where far fewer lines are relevant, stays below that. If Node does stop
+with *JavaScript heap out of memory*, give it a bigger heap and run again:
+
+```bat
+rem Windows
+set NODE_OPTIONS=--max-old-space-size=8192
+build-dashboard.cmd
+```
+
+```bash
+# macOS / Linux
+NODE_OPTIONS=--max-old-space-size=8192 ./build-dashboard.sh
+```
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

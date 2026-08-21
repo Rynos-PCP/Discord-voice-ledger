@@ -32,7 +32,11 @@ substring test before the line is ever parsed as JSON, which is what keeps a
 1.7 GB package down to about ten seconds.
 
 The activity folder ships several reporting streams (`reporting`, `tns`) whose
-contents overlap heavily. They are deduplicated by `event_id`.
+contents overlap heavily. The four event types above are deduplicated by
+`event_id`; the rest of the stream is only ever read for server and channel
+names, and reading a name twice changes nothing. That is deliberate: keeping an
+ID for every line of a multi-gigabyte package is what used to run the build out
+of memory.
 
 ---
 
